@@ -26,20 +26,25 @@ coleccion_manuales = db["manuales_tecnicos"]
 coleccion_bitacoras = db["bitacoras"]
 
 #-----------------FUNCIONES-------------------
+
 def validar(msj):
+    """
+    Esta función revisa que el input ingresado sea un número entero.
+    Si el usuario solo presiona Enter, se devuelve None.
+    """
     while True:
-        contador=0
+        entrada= input(msj)
+        if entrada== "":
+            return None
         try:
-            entrada=int(input(msj))
-            return entrada
+            return int(entrada)
         except ValueError:
-            print("Solo números enteros!")
-            contador+=1
-        if contador==3:
-            print("No se permiten más intentos")
-            break
+            print("Solo se permiten números enteros o presione Enter para dejarlo vacío")
 
 def conectar_db():
+    """
+    Esta función se conecta la base de datos usando el usuario y contraseña indicados y conectándose a un servidor local
+    """
     return mysql.connector.connect(
         host="localhost",
         user="Informatica1",
@@ -48,12 +53,31 @@ def conectar_db():
     )
 
 def validar_fecha(fecha_str):
+    """
+    Valida que el ingreso de la fecha se haga en el formato establecido y que los datos sean coherentes
+    """
     try:
         datetime.strptime(fecha_str, "%Y-%m-%d")
         return True
     except ValueError:
         return False
+    
 def verificar_tecnico(tecnico_id):
+    """ 
+        Verifica si un técnico existe en la base de datos MySQL y si su rol es 'Técnico'. 
+        Primero confirma que la ID sea un string válido, luego realiza una consulta en la tabla 'usuarios' 
+        para buscar el técnico por su ID.
+
+    Returns
+    -------
+    existe (bool):
+        True si se encontró el usuario, False si no.
+    es_tecnico (bool):
+        True si el usuario tiene el rol 'Técnico'.
+    nombre_tecnico (str | None):
+        El nombre del usuario si existe, None si no se encuentra.
+
+    """
     if not tecnico_id or not isinstance(tecnico_id, str):
         return (False, False, None)  
     conexion = None
@@ -81,6 +105,10 @@ def verificar_tecnico(tecnico_id):
         conexion.close()
         
 def contraseñas_json():
+    """
+    Esta función crea el archivo json en el que se guardarán las contraseñas ingresadas, con el usuario correspondiente 
+    y su ID
+    """
     conexion = conectar_db()
     cursor = conexion.cursor()
     try:
@@ -96,7 +124,7 @@ def contraseñas_json():
             })
 
         with open("contraseñas.json", "w", encoding="utf-8") as f:
-            json.dump(backup, f, indent=4, ensure_ascii=False)
+            json.dump(backup, f, indent=4)
 
         print("Backup guardado exitosamente en contraseñas.json.")
     except Exception as e:
@@ -106,6 +134,9 @@ def contraseñas_json():
         conexion.close()
 
 def validar_equipos(campo):
+    """
+    La función valida el ingreso de datos en todos los campos requeridos
+    """
     while True:
         valor = input(f"{campo}: ").strip()
         if valor:
@@ -115,6 +146,13 @@ def validar_equipos(campo):
 #-----------------TABLAS----------------
 
 def tabla_usuario():
+    """
+    Se conecta la tabla de usuarios llamando a la función ya creada, el cursor sirve como puente para 
+    ejecutar sentencias SQL, se ejecuta la tabla que tiene un ID único y automático para cada usuario, 
+    tienes los campos de usuario y contraseña como obligatorios, reduce los roles a 3 únicamente y 
+    agrega otros campos opcionales para el técnico, con el commit se aplican los cambios y luego se cierra la 
+    conexión
+    """
     conexion= conectar_db()
     cursor= conexion.cursor()
     cursor.execute("""
@@ -183,6 +221,13 @@ def tabla_mantenimiento():
 #------------------USUARIOS---------------
 
 def registrar_usuario():
+    """
+    Las funciones de usuario se ejecutan solo para el administrador, primero se conecta a la base de datos, usa el cursor, 
+    pide los datos necesarios, en el caso de los roles pide un número como clave y con un diccionario en la tabla se usa el rol al que corresponde, 
+    en caso de que no exista, se marca el error. Luego, busca el usuario ingresado y en caso de que no lo encuentre, 
+    lo registra, de lo contrario, marca el error. Además, si el rol es de técnico, pide los datos adicionales y los guarda.
+    
+    """
     conexion= conectar_db()
     cursor= conexion.cursor()   
     nombre_usuario= input("Ingrese el nombre de usuario: ").strip()
@@ -212,8 +257,8 @@ def registrar_usuario():
             tecnico_id= cursor.lastrowid
             nombre_completo= input("Nombre completo del técnico: ").strip()
             especialidad= input("Especialidad: ").strip()
-            cedula= input("Cédula profesional: ").strip()
-            contacto= input("Contacto: ").strip()
+            cedula= validar("Cédula profesional: ")
+            contacto= validar("Contacto: ")
 
             cursor.execute("""
                 UPDATE usuarios SET 
@@ -229,6 +274,12 @@ def registrar_usuario():
     conexion.close()
 
 def editar_usuario():
+    """
+    Establece la conexión, comprueba la existencia del usuario por medio del nombre de usuario, extrae la información
+    actual del usuario y la imprime, además, si es técnico imprime los datos adicionales, luego, se piden los nuevos datos
+    a cambiar, o si se quieren dejar en blanco se puede usar enter, también se piden los nuevos valores para el técnico. 
+    Luego guarda estos datos y los actualiza.
+    """
     conexion= conectar_db()
     cursor= conexion.cursor()
     nombre_usuario= input("Ingrese el nombre del usuario que desea editar: ").strip()
@@ -273,8 +324,8 @@ def editar_usuario():
         print("\n--- Información profesional del técnico ---")
         nuevo_nombre_completo = input("Nombre completo (Enter para no cambiarlo): ").strip()
         nueva_especialidad = input("Especialidad (Enter para no cambiarla): ").strip()
-        nueva_cedula = input("Cédula profesional (Enter para no cambiarla): ").strip()
-        nuevo_contacto = input("Contacto (Enter para no cambiarlo): ").strip()
+        nueva_cedula = validar("Cédula profesional (Enter para no cambiarla): ")
+        nuevo_contacto = validar("Contacto (Enter para no cambiarlo): ")
         nuevo_nombre_completo = nuevo_nombre_completo if nuevo_nombre_completo else nombre_completo
         nueva_especialidad = nueva_especialidad if nueva_especialidad else especialidad
         nueva_cedula = nueva_cedula if nueva_cedula else cedula
@@ -289,6 +340,10 @@ def editar_usuario():
     conexion.close()
 
 def eliminar_usuario():
+    """
+    De igual forma, se verifica la existencia del usuario por el nombre, en caso de que no exista se indica como 
+    tal y en caso de que si utiliza el comando DELETE para eliminar al usuario y los datos que corresponden a este
+    """
     conexion= conectar_db()
     cursor= conexion.cursor()
     nombre_usuario = input("Ingrese el nombre del usuario que desea eliminar: ").strip()
@@ -311,6 +366,9 @@ def eliminar_usuario():
 
 #-------------------------EQUIPOS------------------------
 def equipo_id(tipo_input):
+    """"
+    Esta función crea automaticamente la ID del equipo al seleccionar un tipo de equipo
+    """
     conexion = conectar_db()
     cursor = conexion.cursor()
 
@@ -337,6 +395,12 @@ def equipo_id(tipo_input):
     return equipo_id, tipo_nombre
 
 def añadir_equipos():
+    """
+    Añadir, editar y elimar equipos sun funciones del administrador, para añadir, se solicita el tipo de equipo, a partir
+    del que se crea la ID automaticamente, además, solicita la infromación de clase, marca, modelo y ubicación, asegurando
+    que no se puedan dejar vacíos, además, valida la fecha de ingreso y el estado. Por último, solicita un técnico al que 
+    asignar el equipo y asegura que el técnico exista en el sistema. Luego. añade toda esta información a la tabla
+    """
     conexion = conectar_db()
     cursor = conexion.cursor()
     try:
@@ -432,6 +496,11 @@ def añadir_equipos():
         conexion.close()
         
 def verificar_equipo(equipo_id):
+    """
+    Esta función verifica que el formateo de la ID de los equipos sea correcta, isinstance confirma que sea de tipo string,
+    con startswith se confirma que empiece por EQ y con len que tenga 3 partes separadas por-, si no se cumplen retorna
+    que el argumento es falso
+    """
     if not isinstance(equipo_id, str) or not equipo_id.startswith('EQ-') or len(equipo_id.split('-')) != 3:
         return False
     conexion = None
@@ -449,12 +518,18 @@ def verificar_equipo(equipo_id):
         conexion.close() 
         
 def buscar_equipo_por_id(equipo_id):
+    """
+    Esta función permite buscar equipos ingresando su ID, si la ID existe muestra los resultados, de lo contrario
+    marca que no existe. Función para ingeniero clínico
+    """
+    conexion = conectar_db()
+    cursor = conexion.cursor()
     try:
         consulta = "SELECT * FROM equipos_biomedicos WHERE equipo_id = %s"
         cursor.execute(consulta, (equipo_id,))
         resultado = cursor.fetchone()
         if resultado:
-            print(f"ID: {resultado[0]}")
+            print(f"\nID: {resultado[0]}")
             print(f"Nombre: {resultado[1]}")
             print(f"Tipo: {resultado[2]}")
             print(f"Clase: {resultado[3]}")
@@ -468,8 +543,15 @@ def buscar_equipo_por_id(equipo_id):
             print("No se encontró el equipo con ese ID.")
     except mysql.connector.Error as error:
         print(f"Error al buscar el equipo: {error}")
+    finally:
+        cursor.close()
+        conexion.close()
         
 def ver_equipos():
+    """"
+    Esta función muestra todos los equipos registrados en el sistema, en caso de que no hayan, se marca. Función para 
+    ingeniero clínico
+    """
     conexion = conectar_db()
     cursor = conexion.cursor()
     try:
@@ -490,7 +572,7 @@ Fecha ingreso: {e[7]}
 Estado: {e[8]}
 Técnico asignado (ID): {e[9]}
 {""}
-""")
+                      """)
         else:
             print("No hay equipos registrados.")
     except Exception as e:
@@ -500,6 +582,9 @@ Técnico asignado (ID): {e[9]}
         conexion.close()
     
 def ver_equipos_asignados(nombre_usuario):
+    """
+    Función para técnicos, permite que de acuerdo a su nombre de usuario, se puedan ver los equipos conectados a este.
+    """
     conexion = conectar_db()
     cursor = conexion.cursor()
     try:
@@ -524,6 +609,9 @@ def ver_equipos_asignados(nombre_usuario):
         conexion.close()
         
 def modificar_equipo(equipo_id, campo, nuevo_valor):
+    """
+    Esta función garantiza que el usuario ingrese un campo permitido y un ID existente, de lo contrario, marca el error.
+    """
     conexion = conectar_db()
     cursor = conexion.cursor()
     try:
@@ -564,6 +652,10 @@ def modificar_equipo(equipo_id, campo, nuevo_valor):
         conexion.close()
         
 def eliminar_equipo():
+    """
+    Verifica que existan equipos, si los hay pregunta por el ID y evalúa su formateo, luego, pregunta por confirmación
+    y si S, se cancela la operación, de lo contrario, se elimina el equipo
+    """
     conexion = None
     cursor = None
     try:
@@ -781,6 +873,12 @@ def subir_reporte_mongo(usuario_id,nombre_usuario):
 #--------------------------BITACORAS------------------------
 
 def crear_bitacora():
+    """
+    Returns: bitacora_id (str) si la bitácora se crea exitosamente.
+    -------
+    Crea una nueva bitácora de fallas para un equipo en la base de datos, vinculada a un técnico responsable.
+
+    """
     try:
         equipo_id = input("Ingrese el ID del equipo (EQ-XXX-XXXX): ").strip().upper()
         if not verificar_equipo(equipo_id):
@@ -831,6 +929,20 @@ def crear_bitacora():
         return None
 
 def agregar_entrada_bitacora(bitacora_id=None):
+    """
+    Returns: True si se agregó exitosamente o False si hubo errores o cancelación.
+    -------
+    Agrega una nueva entrada de evento/falla a una bitácora existente,
+    crea un diccionario nueva_entrada con:
+        fecha actual en ISO,
+        evento,
+        técnico que registró.
+
+    Usa update_one para:
+        añadir la nueva entrada al array entradas,
+        actualizar ultima_actualizacion, técnico y nombre del técnico.
+
+    """
     try:
         if not bitacora_id:
             bitacora_id = input("Ingrese ID de la bitácora: ").strip()
@@ -900,6 +1012,12 @@ def agregar_entrada_bitacora(bitacora_id=None):
         return False
 
 def eliminar_bitacora():
+    """
+    Returns: True si se elimina exitosamente o False si ocurre error, el usuario cancela o no se encuentra.
+    -------
+    Elimina completamente una bitácora de la base de datos, pide bitacora_id y valida que comience con bf-, b
+    usca la bitácora y muestra sus detalles, ademas pide confirmación al usuario antes de eliminar.
+    """
     try:
         print("\nELIMINAR BITÁCORA DE FALLAS")
         bitacora_id = input("Ingrese el ID de la bitacora a eliminar: ").strip()
@@ -938,6 +1056,13 @@ def eliminar_bitacora():
         return False
 
 def consultar_bitacoras():
+    """
+    Returns: No retorna valores, solo imprime en consola.
+    -------
+    Permite al usuario consultar bitácoras con diferentes filtros según la opción seleccionada, construye un filtro adecuado para la consulta, 
+    recupera las bitácoras ordenadas por fecha descendente y si no encuentra resultados, lo indica.
+
+    """
     try:
         print("CONSULTA DE BITÁCORAS DE FALLAS".center(60))
         print("\nOpciones de consulta:")
@@ -1018,6 +1143,12 @@ def consultar_bitacoras():
         print(f"\nError en la consulta: {str(e)}")
 
 def mostrar_detalle_bitacora(bitacora_id):
+    """
+    Returns: No retorna valores, solo imprime en consola.
+    -------
+    Mostrar toda la información y entradas registradas en una bitácora específica.
+
+    """
     try:
         if not bitacora_id.startswith('bf-'):
             print("Error: ID de bitácora inválido")
@@ -1048,6 +1179,12 @@ def mostrar_detalle_bitacora(bitacora_id):
         print(f"Error al mostrar detalle: {str(e)}")
 
 def listar_bitacoras_disponibles():
+    """
+    Returns: No retorna valores, solo imprime en consola.
+    -------
+    Listar bitácoras en consola de forma resumida, con opciones de filtrado.
+
+    """
     try:
         print("\n--- BITÁCORAS DISPONIBLES ---")
         print("Opciones de filtrado:")
@@ -1110,6 +1247,12 @@ def listar_bitacoras_disponibles():
             print(f"Detalles MongoDB: {e.details}")
 
 def descargar_bitacora(bitacora_id, destino=None): 
+    """
+    Returns: True si se exporta correctamente o False si ocurre un error.
+    -------
+    Exportar una bitácora a un archivo .txt con toda su información y entradas registradas.
+
+    """
     try:
         bitacora = coleccion_bitacoras.find_one({"bitacora_id": bitacora_id})
         if not bitacora:
@@ -1123,16 +1266,19 @@ def descargar_bitacora(bitacora_id, destino=None):
         contenido += f"Técnico responsable: {bitacora.get('nombre_tecnico', 'N/A')}\n\n"
         contenido += "ENTRADAS REGISTRADAS:\n"
 
-        for i, entrada in enumerate(bitacora['entradas'], 1):
+        for i, entrada in enumerate(bitacora.get('entradas', []), 1):
             contenido += f"\nEntrada #{i}\n"
-            contenido += f"Fecha: {entrada['fecha']}\n"
+            contenido += f"Fecha: {entrada.get('fecha', 'N/A')}\n"
             contenido += f"Registrado por: {entrada.get('nombre_tecnico', 'N/A')}\n"
-            contenido += f"Evento: {entrada['evento']}\n"
+            contenido += f"Evento: {entrada.get('evento', 'N/A')}\n"
 
         if not destino:
-            carpeta_descargas = os.path.join(os.path.expanduser('~'), 'Downloads')
+            ruta_base = os.path.dirname(os.path.abspath(__file__))
+            carpeta_bitacoras = os.path.join(ruta_base, "Bitacoras Guardadas")
+            os.makedirs(carpeta_bitacoras, exist_ok=True)
+
             nombre_archivo = f"bitacora_{bitacora_id}.txt"
-            destino = os.path.join(carpeta_descargas, nombre_archivo)
+            destino = os.path.join(carpeta_bitacoras, nombre_archivo)
 
         with open(destino, 'w', encoding='utf-8') as archivo:
             archivo.write(contenido)
@@ -1147,6 +1293,17 @@ def descargar_bitacora(bitacora_id, destino=None):
 #------------------------MANUALES------------------------
 
 def listar_manuales_disponibles():
+    """
+    lista todos los manuales técnicos disponibles almacenados en la colección 'coleccion_manuales' 
+    ordenados alfabéticamente por el nombre del equipo. 
+    Muestra en consola una tabla con el ID del manual, nombre del equipo, versión del manual y fecha de carga. 
+    Si no existen manuales registrados, muestra un mensaje indicándolo.
+
+    Returns
+    -------
+    None. No retorna valores, solo imprime en consola.
+
+    """
     try:
         print("\n--- MANUALES TÉCNICOS DISPONIBLES ---")
         manuales = list(coleccion_manuales.find().sort("nombre_equipo", 1))
@@ -1173,6 +1330,17 @@ def listar_manuales_disponibles():
             print(f"Detalles: {e.details}")
 
 def descargar_manual(manual_id=None):
+    """
+   Ppermite al usuario descargar un manual técnico en formato PDF desde una ruta local especificada
+   en la base de datos MongoDB. Si no se pasa 'manual_id', lista los manuales disponibles y solicita al usuario 
+   seleccionar uno. Luego verifica que el archivo exista y lo copia a una carpeta 'Manuales Tecnicos' en el mismo 
+   directorio del script, renombrándolo de forma organizada con el nombre del equipo y versión.
+   
+    Returns
+    -------
+    None. No retorna valor, imprime mensajes de confirmación o error según el resultado
+
+    """
     try:
         if manual_id is None:
             listar_manuales_disponibles()
@@ -1184,20 +1352,29 @@ def descargar_manual(manual_id=None):
             print("Manual no encontrado en la base de datos.")
             return
 
-        ruta_origen = manual.get("file_path")
-        if not ruta_origen or not os.path.isfile(ruta_origen):
-            print(f" El archivo no existe en la ruta: {ruta_origen}")
+        archivo_relativo = manual.get("file_path")
+        if not archivo_relativo:
+            print("Ruta del manual no especificada.")
             return
 
-        carpeta_descargas = os.path.join(os.path.expanduser("~"), "Downloads")
-        nombre_archivo = f"manual_{manual.get('nombre_equipo', 'Equipo')}_v{manual.get('version', 'X')}.pdf"
-        destino = os.path.join(carpeta_descargas, nombre_archivo)
+        ruta_base = os.path.dirname(os.path.abspath(__file__))
+        ruta_origen = os.path.join(ruta_base, archivo_relativo)
+
+        if not os.path.isfile(ruta_origen):
+            print(f"El archivo no existe: {ruta_origen}")
+            return
+
+        carpeta_destino = os.path.join(ruta_base, "Manuales Tecnicos")
+        os.makedirs(carpeta_destino, exist_ok=True)
+
+        nombre_archivo = f"manual_{manual.get('nombre_equipo', 'Equipo').replace(' ', '_')}_v{manual.get('version', 'X')}.pdf"
+        destino = os.path.join(carpeta_destino, nombre_archivo)
 
         shutil.copy2(ruta_origen, destino)
-        print(f" Manual descargado exitosamente en: {destino}")
+        print(f"Manual descargado exitosamente en: {destino}")
 
     except Exception as e:
-        print(f" Error al descargar manual: {e}")
+        print(f"Error al descargar manual: {e}")
 
 
 #--------------------------MENUS----------------------------
@@ -1326,23 +1503,27 @@ def login():
                             Historialmmtos()
 
                         elif subop == "2":
-                            tecnico_user = input("Ingrese el nombre de usuario del técnico: ").strip()
+                            try:
+                                tecnico_id = input("Ingrese el ID del técnico: ").strip()
 
-                            cursor.execute("""
-                                SELECT usuario_id FROM usuarios 
-                                WHERE nombreUsuario = %s AND rol = 'Técnico'
-                                """, (tecnico_user,))
-        
-                            resultado = cursor.fetchone()
+                                conexion = conectar_db()
+                                cursor = conexion.cursor()
 
-                            if resultado:
-                                tecnico_id = resultado[0]
-                                ver_mis_mantenimientos(tecnico_id)
-                            else:
-                                print("Técnico no encontrado o no tiene rol de 'Técnico'")
-                        else:
-                            print("Opción inválida. Intente nuevamente.")
-                            continue
+                                cursor.execute("""
+                                    SELECT usuario_id FROM usuarios 
+                                    WHERE usuario_id = %s AND rol = 'Técnico'
+                                """, (tecnico_id,))
+                                resultado = cursor.fetchone()
+
+                                if resultado:
+                                    ver_mis_mantenimientos(tecnico_id)
+                                else:
+                                    print("Técnico no encontrado o no tiene el rol adecuado.")
+
+                                cursor.close()
+                                conexion.close()
+                            except Exception as e:
+                                print(f"Error al buscar técnico: {e}")
                             
                     elif opcion=="4":
                         try:
@@ -1468,7 +1649,16 @@ def login():
                     opcion= int(input("Elija una opcion: "))
                     
                     if opcion==1:
-                        ver_equipos()
+                        print("1. Ver equipos por ID, 2. Ver todos los equipos")
+                        subop=input("Elija una opción: ")
+                        if subop not in {"1","2"}:
+                            print("Opción inválida. Intente de nuevo")
+                        elif subop=="1":
+                            equipo_id= input("Ingrese la ID del equipo a buscar (EQ-XXX-XXXX): ")
+                            buscar_equipo_por_id(equipo_id)
+                        elif subop=="2":
+                            ver_equipos()
+                        
 
                     elif opcion==2:
                         Historialmmtos()
@@ -1486,8 +1676,8 @@ def login():
                                 print("Notas tecnicas:")
                                 for nota in i["Notas_tecnicas"]:
                                     print(f"{nota}")
-                                    print("Manual tecnico:", i['Rutas']['manual_pdf'])
-                                    print("Reporte PDF:", i['Rutas']['reporte_pdf'])
+                                print("Manual tecnico:", i['Rutas']['manual_pdf'])
+                                print("Reporte PDF:", i['Rutas']['reporte_pdf'])
                             else:
                                 print("Sin reportes registrados")
                     elif opcion ==4:
@@ -1538,13 +1728,13 @@ def login():
                         ver_equipos_asignados(nombre_usuario)
 
                     elif opcion == "2":
-                        registrar_mmto(usuario_id)
+                        registrar_mmto(usuario_id,"Preventivo")
 
                     elif opcion == "3":
-                        registrar_mmto(usuario_id)
+                        registrar_mmto(usuario_id,"Correctivo")
 
                     elif opcion == "4":
-                        subir_reporte_mongo(usuario_id)
+                        subir_reporte_mongo(usuario_id,nombre_usuario)
                     
                     elif opcion == "5":
                         reportes = mongorep.consultar_reportes_usuario({"rol":"Tecnico","id":usuario_id})
@@ -1561,6 +1751,7 @@ def login():
                                     print(f"{nota}")
                                 print("Manual tecnico:", i['Rutas']['manual_pdf'])
                                 print("Reporte PDF:", i['Rutas']['reporte_pdf'])
+                                print()
                         else:
                             print("Sin reportes registrados")
                     
@@ -1580,6 +1771,7 @@ def login():
 
 tabla_usuario()
 tabla_equipos()
+tabla_mantenimiento()
 while True:
     opcion= input("\n¿Deseas (1) Registrar usuario,  (2) Iniciar sesión o (3) Salir del programa? ")
     
